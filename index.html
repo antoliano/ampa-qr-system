@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Sistema de gestión AMPA Hermanos Alvarez Quintero - Generación de códigos QR y control de asistencia">
+  <meta name="theme-color" content="#7c3aed">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AMPA HAQ">
+  
+  <title>AMPA Hermanos Alvarez Quintero</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    .scan-animation {
+      animation: scan 2s ease-in-out infinite;
+    }
+    
+    @keyframes scan {
+      0%, 100% { transform: translateY(-100%); }
+      50% { transform: translateY(100%); }
+    }
+    
+    .fade-in {
+      animation: fadeIn 0.3s ease-in;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // Iconos SVG
+    const Icons = {
+      Camera: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      ),
+      Calendar: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      ),
+      Users: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      ),
+      QrCode: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="3" width="7" height="7"/>
+          <rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/>
+          <rect x="3" y="14" width="7" height="7"/>
+        </svg>
+      ),
+      Download: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+      ),
+      Plus: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="12" y1="5" x2="12" y2="19"/>
+          <line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      ),
+      Trash: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+      ),
+      CheckCircle: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+          <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+      ),
+      XCircle: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/>
+          <line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+      ),
+      AlertTriangle: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      ),
+      Shield: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      ),
+      Home: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+      ),
+      Video: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polygon points="23 7 16 12 23 17 23 7"/>
+          <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+        </svg>
+      ),
+      List: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="8" y1="6" x2="21" y2="6"/>
+          <line x1="8" y1="12" x2="21" y2="12"/>
+          <line x1="8" y1="18" x2="21" y2="18"/>
+          <line x1="3" y1="6" x2="3.01" y2="6"/>
+          <line x1="3" y1="12" x2="3.01" y2="12"/>
+          <line x1="3" y1="18" x2="3.01" y2="18"/>
+        </svg>
+      ),
+      Edit: () => (
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+      )
+    };
+
+    // Componente principal de la aplicación
+    const AMPAApp = () => {
+      const [vistaActual, setVistaActual] = useState('home');
+      const [socios, setSocios] = useState([]);
+      const [reuniones, setReuniones] = useState([]);
+
+      useEffect(() => {
+        loadData();
+        
+        // Registrar Service Worker
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('Service Worker registrado'))
+            .catch(err => console.log('Error al registrar SW:', err));
+        }
+      }, []);
+
+      const loadData = async () => {
+        try {
+          // Intentar con window.storage (Claude.ai) o localStorage (local/GitHub Pages)
+          let sociosData = null;
+          let reunionesData = null;
+          
+          if (typeof window.storage !== 'undefined') {
+            // Entorno Claude.ai
+            try {
+              const sociosResult = await window.storage.get('ampa-socios', false);
+              if (sociosResult && sociosResult.value) {
+                sociosData = sociosResult.value;
+              }
+              const reunionesResult = await window.storage.get('ampa-reuniones', false);
+              if (reunionesResult && reunionesResult.value) {
+                reunionesData = reunionesResult.value;
+              }
+            } catch (e) {
+              console.log('Error con window.storage, usando localStorage');
+            }
+          }
+          
+          // Fallback a localStorage
+          if (!sociosData) {
+            sociosData = localStorage.getItem('ampa-socios');
+          }
+          if (!reunionesData) {
+            reunionesData = localStorage.getItem('ampa-reuniones');
+          }
+          
+          if (sociosData) {
+            setSocios(JSON.parse(sociosData));
+          }
+          if (reunionesData) {
+            setReuniones(JSON.parse(reunionesData));
+          }
+        } catch (error) {
+          console.log('Iniciando con datos vacíos', error);
+        }
+      };
+
+      const renderVista = () => {
+        switch(vistaActual) {
+          case 'generador':
+            return <GeneradorQR socios={socios} setSocios={setSocios} />;
+          case 'reuniones':
+            return <GestorReuniones socios={socios} reuniones={reuniones} setReuniones={setReuniones} />;
+          default:
+            return <Home setVista={setVistaActual} socios={socios} reuniones={reuniones} />;
+        }
+      };
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100">
+          {renderVista()}
+          
+          {/* Navegación inferior */}
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg safe-area-inset-bottom">
+            <div className="flex justify-around items-center h-16">
+              <button
+                onClick={() => setVistaActual('home')}
+                className={`flex flex-col items-center justify-center flex-1 h-full ${
+                  vistaActual === 'home' ? 'text-purple-600' : 'text-gray-400'
+                }`}
+              >
+                <Icons.Home />
+                <span className="text-xs mt-1">Inicio</span>
+              </button>
+              
+              <button
+                onClick={() => setVistaActual('generador')}
+                className={`flex flex-col items-center justify-center flex-1 h-full ${
+                  vistaActual === 'generador' ? 'text-purple-600' : 'text-gray-400'
+                }`}
+              >
+                <Icons.QrCode />
+                <span className="text-xs mt-1">Generar QR</span>
+              </button>
+              
+              <button
+                onClick={() => setVistaActual('reuniones')}
+                className={`flex flex-col items-center justify-center flex-1 h-full ${
+                  vistaActual === 'reuniones' ? 'text-purple-600' : 'text-gray-400'
+                }`}
+              >
+                <Icons.Calendar />
+                <span className="text-xs mt-1">Reuniones</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // Componente Home
+    const Home = ({ setVista, socios, reuniones }) => {
+      return (
+        <div className="p-6 pb-24">
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="bg-purple-600 p-3 rounded-lg">
+                <Icons.Shield />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-800">AMPA Hermanos Alvarez Quintero</h1>
+                <p className="text-gray-600">Sistema de gestión de socios</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            <button
+              onClick={() => setVista('generador')}
+              className="bg-white rounded-xl shadow-lg p-6 text-left hover:shadow-xl transition"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+                      <Icons.QrCode />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-800">Generar Códigos QR</h2>
+                  </div>
+                  <p className="text-gray-600 text-sm">Crea códigos QR para nuevos socios</p>
+                  <p className="text-purple-600 font-semibold mt-2">{socios.length} socios registrados</p>
+                </div>
+                <div className="text-purple-600">→</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setVista('reuniones')}
+              className="bg-white rounded-xl shadow-lg p-6 text-left hover:shadow-xl transition"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="bg-purple-100 p-2 rounded-lg text-purple-600">
+                      <Icons.Calendar />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-800">Gestionar Reuniones</h2>
+                  </div>
+                  <p className="text-gray-600 text-sm">Control de asistencia con QR</p>
+                  <p className="text-purple-600 font-semibold mt-2">{reuniones.length} reuniones creadas</p>
+                </div>
+                <div className="text-purple-600">→</div>
+              </div>
+            </button>
+          </div>
+
+          <div className="mt-6 bg-white rounded-xl shadow-lg p-6">
+            <h3 className="font-semibold text-gray-800 mb-3">Características</h3>
+            <ul className="space-y-2 text-sm text-gray-600">
+              <li className="flex items-center gap-2">
+                <Icons.CheckCircle />
+                <span>Códigos QR con seguridad HMAC</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Icons.CheckCircle />
+                <span>Validación automática de caducidad</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Icons.CheckCircle />
+                <span>Control de duplicados en reuniones</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Icons.CheckCircle />
+                <span>Almacenamiento local seguro</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      );
+    };
+
+    // Componente Generador QR
+    const GeneradorQR = ({ socios, setSocios }) => {
+      const [formData, setFormData] = useState({
+        dni: '',
+        nombrePadre: '',
+        hijos: [{ nombre: '', curso: '' }]
+      });
+      const [mostrarListado, setMostrarListado] = useState(false);
+      const [socioEditando, setSocioEditando] = useState(null);
+      const [modoEdicion, setModoEdicion] = useState(false);
+      const [qrModal, setQrModal] = useState(null);
+      const [qrGenerado, setQrGenerado] = useState(null);
+      const [error, setError] = useState('');
+
+      const SECRET_KEY = 'AMPA_SECRET_KEY_2025';
+
+      const saveSocios = async (nuevosSocios) => {
+        try {
+          // Intentar guardar con window.storage (Claude.ai)
+          if (typeof window.storage !== 'undefined') {
+            try {
+              await window.storage.set('ampa-socios', JSON.stringify(nuevosSocios), false);
+              setSocios(nuevosSocios);
+              return;
+            } catch (e) {
+              console.log('Error con window.storage, usando localStorage');
+            }
+          }
+          
+          // Fallback a localStorage
+          localStorage.setItem('ampa-socios', JSON.stringify(nuevosSocios));
+          setSocios(nuevosSocios);
+        } catch (error) {
+          setError('Error al guardar en el almacenamiento');
+        }
+      };
+
+      const calcularFechaCaducidad = () => {
+        const hoy = new Date();
+        const mesActual = hoy.getMonth();
+        const añoActual = hoy.getFullYear();
+        const añoCaducidad = mesActual >= 6 ? añoActual + 1 : añoActual;
+        return `${añoCaducidad}-06-30`;
+      };
+
+      const generarHMAC = async (data) => {
+        const message = SECRET_KEY + JSON.stringify(data);
+        const msgUint8 = new TextEncoder().encode(message);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hashHex.substring(0, 16);
+      };
+
+      const agregarHijo = () => {
+        setFormData({
+          ...formData,
+          hijos: [...formData.hijos, { nombre: '', curso: '' }]
+        });
+      };
+
+      const eliminarHijo = (index) => {
+        const nuevosHijos = formData.hijos.filter((_, i) => i !== index);
+        setFormData({
+          ...formData,
+          hijos: nuevosHijos.length > 0 ? nuevosHijos : [{ nombre: '', curso: '' }]
+        });
+      };
+
+      const actualizarHijo = (index, campo, valor) => {
+        const nuevosHijos = [...formData.hijos];
+        nuevosHijos[index] = { ...nuevosHijos[index], [campo]: valor };
+        setFormData({
+          ...formData,
+          hijos: nuevosHijos
+        });
+      };
+
+      const generarNumeroSocio = () => {
+        if (socios.length === 0) return 1;
+        const maxNumero = Math.max(...socios.map(s => s.numeroSocio));
+        return maxNumero + 1;
+      };
+
+      const generarCodigoQR = async () => {
+        setError('');
+        
+        if (!formData.dni.trim() || !formData.nombrePadre.trim() || formData.hijos.some(h => !h.nombre.trim() || !h.curso.trim())) {
+          setError('Por favor completa todos los campos (nombre y curso de cada hijo)');
+          return;
+        }
+
+        const socioExistente = socios.find(s => s.dni.toLowerCase() === formData.dni.toLowerCase());
+        const numeroSocio = socioExistente ? socioExistente.numeroSocio : generarNumeroSocio();
+        
+        const fechaCaducidad = calcularFechaCaducidad();
+        const fechaGeneracion = new Date().toISOString().split('T')[0];
+
+        const datosQR = {
+          numeroSocio,
+          dni: formData.dni.toUpperCase(),
+          nombrePadre: formData.nombrePadre,
+          hijos: formData.hijos.map(h => ({ nombre: h.nombre, curso: h.curso })),
+          numeroHijos: formData.hijos.length,
+          fechaGeneracion,
+          fechaCaducidad
+        };
+
+        const firma = await generarHMAC(datosQR);
+        datosQR.firma = firma;
+
+        const qrContent = JSON.stringify(datosQR);
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrContent)}`;
+        
+        // Añadir URL del QR a los datos del socio
+        datosQR.qrUrl = qrUrl;
+
+        setQrGenerado({
+          ...datosQR,
+          qrUrl
+        });
+
+        let nuevosSocios;
+        if (socioExistente) {
+          nuevosSocios = socios.map(s => 
+            s.dni.toLowerCase() === formData.dni.toLowerCase() 
+              ? { ...datosQR, historial: [...(s.historial || []), { fecha: fechaGeneracion, accion: 'Renovación' }] }
+              : s
+          );
+        } else {
+          nuevosSocios = [...socios, { ...datosQR, historial: [{ fecha: fechaGeneracion, accion: 'Alta' }] }];
+        }
+
+        await saveSocios(nuevosSocios);
+
+        setFormData({
+          dni: '',
+          nombrePadre: '',
+          hijos: [{ nombre: '', curso: '' }]
+        });
+      };
+
+      const descargarQR = () => {
+        if (!qrGenerado) return;
+        
+        const link = document.createElement('a');
+        link.href = qrGenerado.qrUrl;
+        link.download = `AMPA_Socio_${qrGenerado.numeroSocio}_${qrGenerado.dni}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      const eliminarSocio = async (numeroSocio) => {
+        if (confirm('¿Eliminar este socio? Esta acción no se puede deshacer.')) {
+          const nuevosSocios = socios.filter(s => s.numeroSocio !== numeroSocio);
+          await saveSocios(nuevosSocios);
+          
+          // Si estábamos editando este socio, cancelar edición
+          if (socioEditando?.numeroSocio === numeroSocio) {
+            cancelarEdicion();
+          }
+          
+          setError('');
+        }
+      };
+
+      const iniciarEdicion = (socio) => {
+        setSocioEditando(socio);
+        setModoEdicion(true);
+        setFormData({
+          dni: socio.dni,
+          nombrePadre: socio.nombrePadre,
+          hijos: socio.hijos.map(h => ({ 
+            nombre: h.nombre || h, 
+            curso: h.curso || '' 
+          }))
+        });
+        setQrGenerado(null);
+        setError('');
+        
+        // Scroll suave al formulario
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+
+      const cancelarEdicion = () => {
+        setSocioEditando(null);
+        setModoEdicion(false);
+        setFormData({
+          dni: '',
+          nombrePadre: '',
+          hijos: [{ nombre: '', curso: '' }]
+        });
+        setError('');
+      };
+
+      const guardarEdicion = async () => {
+        setError('');
+        
+        if (!formData.dni.trim() || !formData.nombrePadre.trim() || formData.hijos.some(h => !h.nombre.trim() || !h.curso.trim())) {
+          setError('Por favor completa todos los campos (nombre y curso de cada hijo)');
+          return;
+        }
+
+        const fechaCaducidad = calcularFechaCaducidad();
+        const fechaGeneracion = new Date().toISOString().split('T')[0];
+
+        const datosActualizados = {
+          numeroSocio: socioEditando.numeroSocio,
+          dni: formData.dni.toUpperCase(),
+          nombrePadre: formData.nombrePadre,
+          hijos: formData.hijos.map(h => ({ nombre: h.nombre, curso: h.curso })),
+          numeroHijos: formData.hijos.length,
+          fechaGeneracion: socioEditando.fechaGeneracion, // Mantener fecha original
+          fechaCaducidad,
+          historial: [
+            ...(socioEditando.historial || []),
+            { fecha: fechaGeneracion, accion: 'Edición' }
+          ]
+        };
+
+        const firma = await generarHMAC(datosActualizados);
+        datosActualizados.firma = firma;
+
+        const qrContent = JSON.stringify(datosActualizados);
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrContent)}`;
+        
+        // Añadir URL del QR a los datos actualizados
+        datosActualizados.qrUrl = qrUrl;
+
+        setQrGenerado({
+          ...datosActualizados,
+          qrUrl
+        });
+
+        // Actualizar en la lista de socios
+        const nuevosSocios = socios.map(s => 
+          s.numeroSocio === socioEditando.numeroSocio ? datosActualizados : s
+        );
+
+        await saveSocios(nuevosSocios);
+        
+        // Mostrar mensaje de éxito
+        const mensajeExito = document.createElement('div');
+        mensajeExito.className = 'fixed top-4 right-4 bg-green-100 border-2 border-green-500 text-green-800 px-6 py-3 rounded-lg shadow-lg z-50';
+        mensajeExito.innerHTML = '✅ Socio actualizado correctamente. Descarga el nuevo código QR.';
+        document.body.appendChild(mensajeExito);
+        setTimeout(() => mensajeExito.remove(), 4000);
+
+        // No cancelamos la edición para que puedan descargar el nuevo QR
+      };
+
+      const exportarListadoCSV = () => {
+        // Crear CSV
+        let csv = 'Número Socio,DNI,Nombre Titular,Hijos,Cursos,Fecha Alta,Válido Hasta\n';
+        
+        socios.forEach(socio => {
+          const hijosNombres = socio.hijos.map(h => h.nombre || h).join('; ');
+          const hijosCursos = socio.hijos.map(h => h.curso || '-').join('; ');
+          const fechaAlta = socio.fechaGeneracion || '-';
+          const fechaCaducidad = socio.fechaCaducidad || '-';
+          
+          csv += `${socio.numeroSocio},"${socio.dni}","${socio.nombrePadre}","${hijosNombres}","${hijosCursos}","${fechaAlta}","${fechaCaducidad}"\n`;
+        });
+
+        // Descargar
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `AMPA_Listado_Socios_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      const imprimirListado = () => {
+        const ventana = window.open('', '', 'height=600,width=800');
+        ventana.document.write('<html><head><title>Listado de Socios AMPA</title>');
+        ventana.document.write('<style>');
+        ventana.document.write('body { font-family: Arial, sans-serif; padding: 20px; }');
+        ventana.document.write('h1 { color: #7c3aed; }');
+        ventana.document.write('table { width: 100%; border-collapse: collapse; margin-top: 20px; }');
+        ventana.document.write('th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }');
+        ventana.document.write('th { background-color: #7c3aed; color: white; }');
+        ventana.document.write('tr:nth-child(even) { background-color: #f9f9f9; }');
+        ventana.document.write('.header { display: flex; justify-content: space-between; align-items: center; }');
+        ventana.document.write('.fecha { color: #666; font-size: 12px; }');
+        ventana.document.write('@media print { .no-print { display: none; } }');
+        ventana.document.write('</style>');
+        ventana.document.write('</head><body>');
+        ventana.document.write('<div class="header">');
+        ventana.document.write('<h1>Listado de Socios AMPA</h1>');
+        ventana.document.write(`<div class="fecha">Generado: ${new Date().toLocaleDateString('es-ES')}</div>`);
+        ventana.document.write('</div>');
+        ventana.document.write(`<p><strong>Total de socios:</strong> ${socios.length}</p>`);
+        ventana.document.write('<table>');
+        ventana.document.write('<thead><tr>');
+        ventana.document.write('<th>Nº</th><th>DNI</th><th>Titular</th><th>Hijos</th><th>Cursos</th><th>Válido hasta</th>');
+        ventana.document.write('</tr></thead>');
+        ventana.document.write('<tbody>');
+        
+        socios.forEach(socio => {
+          ventana.document.write('<tr>');
+          ventana.document.write(`<td><strong>#${socio.numeroSocio}</strong></td>`);
+          ventana.document.write(`<td>${socio.dni}</td>`);
+          ventana.document.write(`<td>${socio.nombrePadre}</td>`);
+          ventana.document.write('<td>');
+          socio.hijos.forEach((hijo, i) => {
+            const nombreHijo = hijo.nombre || hijo;
+            ventana.document.write(`${i > 0 ? '<br>' : ''}${nombreHijo}`);
+          });
+          ventana.document.write('</td>');
+          ventana.document.write('<td>');
+          socio.hijos.forEach((hijo, i) => {
+            const cursoHijo = hijo.curso || '-';
+            ventana.document.write(`${i > 0 ? '<br>' : ''}${cursoHijo}`);
+          });
+          ventana.document.write('</td>');
+          ventana.document.write(`<td>${new Date(socio.fechaCaducidad).toLocaleDateString('es-ES')}</td>`);
+          ventana.document.write('</tr>');
+        });
+        
+        ventana.document.write('</tbody></table>');
+        ventana.document.write('<div class="no-print" style="margin-top: 20px;">');
+        ventana.document.write('<button onclick="window.print()" style="background: #7c3aed; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Imprimir</button>');
+        ventana.document.write(' <button onclick="window.close()" style="background: #666; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Cerrar</button>');
+        ventana.document.write('</div>');
+        ventana.document.write('</body></html>');
+        ventana.document.close();
+      };
+
+      return (
+        <div className="p-4 pb-24">
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                <Icons.QrCode />
+                {modoEdicion ? `Editar Socio #${socioEditando.numeroSocio}` : 'Generar Código QR'}
+              </h2>
+              {modoEdicion && (
+                <button
+                  onClick={cancelarEdicion}
+                  className="text-red-600 hover:text-red-700 text-sm font-semibold"
+                >
+                  ✕ Cancelar
+                </button>
+              )}
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border-l-4 border-red-500 p-3 mb-4 rounded text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            {modoEdicion && (
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-3 mb-4 rounded text-sm text-blue-700">
+                ℹ️ Estás editando un socio existente. Los cambios generarán un nuevo código QR.
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">DNI/NIF *</label>
+                <input
+                  type="text"
+                  value={formData.dni}
+                  onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${modoEdicion ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                  placeholder="12345678A"
+                  disabled={modoEdicion}
+                />
+                {modoEdicion && (
+                  <p className="text-xs text-gray-500 mt-1">El DNI no se puede modificar</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Padre/Madre *</label>
+                <input
+                  type="text"
+                  value={formData.nombrePadre}
+                  onChange={(e) => setFormData({ ...formData, nombrePadre: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  placeholder="María García López"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">Hijos *</label>
+                  <button
+                    onClick={agregarHijo}
+                    className="text-purple-600 hover:text-purple-700 text-sm font-medium flex items-center gap-1"
+                  >
+                    <Icons.Plus />
+                    Agregar
+                  </button>
+                </div>
+                
+                <div className="space-y-2">
+                  {formData.hijos.map((hijo, index) => (
+                    <div key={index} className="space-y-1">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={hijo.nombre}
+                          onChange={(e) => actualizarHijo(index, 'nombre', e.target.value)}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          placeholder={`Nombre del hijo ${index + 1}`}
+                        />
+                        {formData.hijos.length > 1 && (
+                          <button
+                            onClick={() => eliminarHijo(index)}
+                            className="px-3 py-2 bg-red-100 text-red-600 rounded-lg"
+                          >
+                            <Icons.Trash />
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        value={hijo.curso}
+                        onChange={(e) => actualizarHijo(index, 'curso', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        placeholder={`Curso (ej: 3º Primaria, 1º ESO, Infantil 5 años)`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={modoEdicion ? guardarEdicion : generarCodigoQR}
+                className="w-full bg-purple-600 text-white py-3 rounded-lg hover:bg-purple-700 transition font-semibold flex items-center justify-center gap-2"
+              >
+                <Icons.Shield />
+                {modoEdicion ? 'Actualizar Socio y Generar Nuevo QR' : 'Generar Código QR'}
+              </button>
+            </div>
+
+            {qrGenerado && (
+              <div className="mt-4 bg-gradient-to-br from-purple-50 to-pink-50 p-4 rounded-xl border-2 border-purple-200">
+                <div className="bg-white p-3 rounded-lg mb-3 flex justify-center">
+                  <img src={qrGenerado.qrUrl} alt="Código QR" className="w-full max-w-xs" />
+                </div>
+
+                <div className="space-y-2 text-sm">
+                  <div className="bg-white p-2 rounded-lg flex justify-between">
+                    <span className="font-semibold text-gray-600">Socio:</span>
+                    <span className="text-purple-600 font-bold">#{qrGenerado.numeroSocio}</span>
+                  </div>
+                  
+                  <div className="bg-white p-2 rounded-lg">
+                    <span className="font-semibold text-gray-600">Titular:</span>
+                    <p className="text-gray-800 mt-1">{qrGenerado.nombrePadre}</p>
+                  </div>
+
+                  <div className="bg-white p-2 rounded-lg">
+                    <span className="font-semibold text-gray-600">Hijos ({qrGenerado.numeroHijos}):</span>
+                    <ul className="mt-1 space-y-1">
+                      {qrGenerado.hijos.map((hijo, index) => (
+                        <li key={index} className="text-gray-800 text-xs">
+                          • {hijo.nombre} - {hijo.curso}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="bg-white p-2 rounded-lg flex justify-between">
+                    <span className="font-semibold text-gray-600">Válido hasta:</span>
+                    <span className="text-green-600 font-semibold">
+                      {new Date(qrGenerado.fechaCaducidad).toLocaleDateString('es-ES')}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={descargarQR}
+                  className="w-full mt-3 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-semibold flex items-center justify-center gap-2"
+                >
+                  <Icons.Download />
+                  Descargar QR
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Lista de socios */}
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <Icons.Users />
+                Socios ({socios.length})
+              </h3>
+              {socios.length > 0 && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={exportarListadoCSV}
+                    className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 text-xs font-semibold flex items-center gap-1"
+                  >
+                    <Icons.Download />
+                    CSV
+                  </button>
+                  <button
+                    onClick={imprimirListado}
+                    className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-xs font-semibold"
+                  >
+                    📄 Imprimir
+                  </button>
+                  <button
+                    onClick={() => setMostrarListado(!mostrarListado)}
+                    className="bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 text-xs font-semibold"
+                  >
+                    {mostrarListado ? 'Ocultar' : 'Ver'} Lista
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {socios.length === 0 ? (
+              <p className="text-center py-8 text-gray-500 text-sm">No hay socios registrados</p>
+            ) : mostrarListado ? (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {socios.map((socio) => (
+                  <div key={socio.numeroSocio} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <div className="flex gap-3">
+                      {/* QR Code */}
+                      {socio.qrUrl && (
+                        <div className="flex-shrink-0">
+                          <img 
+                            src={socio.qrUrl} 
+                            alt={`QR Socio ${socio.numeroSocio}`}
+                            className="w-24 h-24 rounded border-2 border-purple-200 cursor-pointer hover:border-purple-400 transition"
+                            onClick={() => setQrModal(socio)}
+                            title="Haz clic para ver en grande"
+                          />
+                          <button
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = socio.qrUrl;
+                              link.download = `AMPA_Socio_${socio.numeroSocio}_${socio.dni}.png`;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }}
+                            className="mt-1 w-full bg-green-600 text-white px-2 py-1 rounded text-xs hover:bg-green-700 flex items-center justify-center gap-1"
+                          >
+                            <Icons.Download />
+                            QR
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* Información del socio */}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-purple-600">#{socio.numeroSocio}</span>
+                          <span className="text-sm font-medium text-gray-800">{socio.nombrePadre}</span>
+                        </div>
+                        <p className="text-xs text-gray-600 mb-2">{socio.dni}</p>
+                        <div className="space-y-1">
+                          <span className="text-xs font-semibold text-gray-700">Hijos ({socio.numeroHijos}):</span>
+                          {socio.hijos.map((hijo, idx) => (
+                            <div key={idx} className="text-xs text-gray-600 ml-2">
+                              • {hijo.nombre || hijo} {hijo.curso && `- ${hijo.curso}`}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-2 text-xs text-gray-500">
+                          Válido hasta: {new Date(socio.fechaCaducidad).toLocaleDateString('es-ES')}
+                        </div>
+                      </div>
+                      
+                      {/* Botones de acción */}
+                      <div className="flex flex-col gap-1">
+                        <button
+                          onClick={() => iniciarEdicion(socio)}
+                          className="text-blue-600 hover:text-blue-700 p-1"
+                          title="Editar socio"
+                        >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => eliminarSocio(socio.numeroSocio)}
+                          className="text-red-600 hover:text-red-700 p-1"
+                          title="Eliminar socio"
+                        >
+                          <Icons.Trash />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center py-4 text-gray-500 text-sm">
+                Haz clic en "Ver Lista" para mostrar todos los socios
+              </p>
+            )}
+          </div>
+
+          {/* Modal QR */}
+          {qrModal && (
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+              onClick={() => setQrModal(null)}
+            >
+              <div 
+                className="bg-white rounded-2xl p-6 max-w-md w-full"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold text-gray-800">Código QR - Socio #{qrModal.numeroSocio}</h3>
+                  <button
+                    onClick={() => setQrModal(null)}
+                    className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+                  >
+                    ×
+                  </button>
+                </div>
+                
+                <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <img 
+                    src={qrModal.qrUrl} 
+                    alt="Código QR"
+                    className="w-full rounded"
+                  />
+                </div>
+                
+                <div className="space-y-2 mb-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-gray-600">Titular:</span>
+                    <span className="text-gray-800">{qrModal.nombrePadre}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-gray-600">DNI:</span>
+                    <span className="text-gray-800">{qrModal.dni}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-gray-600">Hijos:</span>
+                    <span className="text-gray-800">{qrModal.numeroHijos}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-gray-600">Válido hasta:</span>
+                    <span className="text-green-600 font-semibold">
+                      {new Date(qrModal.fechaCaducidad).toLocaleDateString('es-ES')}
+                    </span>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = qrModal.qrUrl;
+                    link.download = `AMPA_Socio_${qrModal.numeroSocio}_${qrModal.dni}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-semibold flex items-center justify-center gap-2"
+                >
+                  <Icons.Download />
+                  Descargar Código QR
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // Componente Gestor de Reuniones
+    const GestorReuniones = ({ socios, reuniones, setReuniones }) => {
+      const [reunionActual, setReunionActual] = useState(null);
+      const [modoCreacion, setModoCreacion] = useState(false);
+      const [escaneando, setEscaneando] = useState(false);
+      const [alertas, setAlertas] = useState([]);
+      const [nuevaReunion, setNuevaReunion] = useState({
+        nombre: '',
+        fecha: '',
+        hora: '',
+        lugar: ''
+      });
+
+      const videoRef = useRef(null);
+      const canvasRef = useRef(null);
+      const streamRef = useRef(null);
+      const scanIntervalRef = useRef(null);
+
+      const SECRET_KEY = 'AMPA_SECRET_KEY_2025';
+
+      useEffect(() => {
+        return () => {
+          detenerCamara();
+        };
+      }, []);
+
+      const saveReuniones = async (nuevasReuniones) => {
+        try {
+          // Intentar guardar con window.storage (Claude.ai)
+          if (typeof window.storage !== 'undefined') {
+            try {
+              await window.storage.set('ampa-reuniones', JSON.stringify(nuevasReuniones), false);
+              setReuniones(nuevasReuniones);
+              return;
+            } catch (e) {
+              console.log('Error con window.storage, usando localStorage');
+            }
+          }
+          
+          // Fallback a localStorage
+          localStorage.setItem('ampa-reuniones', JSON.stringify(nuevasReuniones));
+          setReuniones(nuevasReuniones);
+        } catch (error) {
+          mostrarAlerta('Error al guardar la reunión', 'error');
+        }
+      };
+
+      const crearReunion = async () => {
+        if (!nuevaReunion.nombre || !nuevaReunion.fecha || !nuevaReunion.hora) {
+          mostrarAlerta('Completa todos los campos', 'error');
+          return;
+        }
+
+        const reunion = {
+          id: Date.now(),
+          ...nuevaReunion,
+          fechaCreacion: new Date().toISOString(),
+          asistentes: socios.map(socio => ({
+            numeroSocio: socio.numeroSocio,
+            dni: socio.dni,
+            nombrePadre: socio.nombrePadre,
+            hijos: socio.hijos,
+            numeroHijos: socio.numeroHijos,
+            asistio: false,
+            horaLlegada: null
+          }))
+        };
+
+        const nuevasReuniones = [...reuniones, reunion];
+        await saveReuniones(nuevasReuniones);
+        
+        setNuevaReunion({ nombre: '', fecha: '', hora: '', lugar: '' });
+        setModoCreacion(false);
+        mostrarAlerta(`Reunión creada con ${socios.length} socios`, 'success');
+      };
+
+      const seleccionarReunion = (reunion) => {
+        setReunionActual(reunion);
+        setModoCreacion(false);
+      };
+
+      const iniciarEscaneo = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+          });
+          
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            streamRef.current = stream;
+            setEscaneando(true);
+            
+            scanIntervalRef.current = setInterval(escanearFrame, 300);
+          }
+        } catch (error) {
+          mostrarAlerta('No se pudo acceder a la cámara', 'error');
+        }
+      };
+
+      const detenerCamara = () => {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
+        if (scanIntervalRef.current) {
+          clearInterval(scanIntervalRef.current);
+          scanIntervalRef.current = null;
+        }
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+        }
+        setEscaneando(false);
+      };
+
+      const escanearFrame = async () => {
+        if (!videoRef.current || !canvasRef.current || !escaneando) return;
+
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const context = canvas.getContext('2d');
+
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "dontInvert",
+          });
+          
+          if (code && code.data) {
+            await procesarCodigoQR(code.data);
+          }
+        }
+      };
+
+      const generarHMAC = async (data) => {
+        const message = SECRET_KEY + JSON.stringify(data);
+        const msgUint8 = new TextEncoder().encode(message);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hashHex.substring(0, 16);
+      };
+
+      const validarCodigoQR = async (datosQR) => {
+        if (!datosQR.numeroSocio || !datosQR.dni || !datosQR.fechaCaducidad || !datosQR.firma) {
+          return { valido: false, motivo: 'Formato inválido' };
+        }
+
+        const fechaCaducidad = new Date(datosQR.fechaCaducidad);
+        const hoy = new Date();
+        
+        if (hoy > fechaCaducidad) {
+          return { valido: false, motivo: 'Código caducado', caducado: true };
+        }
+
+        const datosParaVerificar = {
+          numeroSocio: datosQR.numeroSocio,
+          dni: datosQR.dni,
+          nombrePadre: datosQR.nombrePadre,
+          hijos: datosQR.hijos,
+          numeroHijos: datosQR.numeroHijos,
+          fechaGeneracion: datosQR.fechaGeneracion,
+          fechaCaducidad: datosQR.fechaCaducidad
+        };
+
+        const firmaCalculada = await generarHMAC(datosParaVerificar);
+        
+        if (firmaCalculada !== datosQR.firma) {
+          return { valido: false, motivo: 'Código falsificado' };
+        }
+
+        return { valido: true };
+      };
+
+      const procesarCodigoQR = async (codigoTexto) => {
+        if (!reunionActual) {
+          mostrarAlerta('No hay reunión seleccionada', 'error');
+          return;
+        }
+
+        try {
+          const datosQR = JSON.parse(codigoTexto);
+          
+          const validacion = await validarCodigoQR(datosQR);
+          
+          if (!validacion.valido) {
+            if (validacion.caducado) {
+              mostrarAlerta(`⛔ CADUCADO - ${datosQR.nombrePadre}`, 'error', true);
+            } else {
+              mostrarAlerta(`⛔ INVÁLIDO - ${validacion.motivo}`, 'error', true);
+            }
+            return;
+          }
+
+          const indexAsistente = reunionActual.asistentes.findIndex(
+            a => a.numeroSocio === datosQR.numeroSocio
+          );
+
+          if (indexAsistente === -1) {
+            mostrarAlerta(`Socio no encontrado`, 'error');
+            return;
+          }
+
+          const asistente = reunionActual.asistentes[indexAsistente];
+
+          if (asistente.asistio) {
+            mostrarAlerta(
+              `🚨 DUPLICADO - ${asistente.nombrePadre}`,
+              'warning',
+              true
+            );
+            return;
+          }
+
+          const horaActual = new Date().toLocaleTimeString('es-ES', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+
+          const reunionActualizada = {
+            ...reunionActual,
+            asistentes: reunionActual.asistentes.map((a, i) => 
+              i === indexAsistente 
+                ? { ...a, asistio: true, horaLlegada: horaActual }
+                : a
+            )
+          };
+
+          const nuevasReuniones = reuniones.map(r => 
+            r.id === reunionActual.id ? reunionActualizada : r
+          );
+          
+          await saveReuniones(nuevasReuniones);
+          setReunionActual(reunionActualizada);
+
+          mostrarAlerta(
+            `✅ ${asistente.nombrePadre}`,
+            'success',
+            true
+          );
+
+        } catch (error) {
+          mostrarAlerta('Error al procesar QR', 'error');
+        }
+      };
+
+      const mostrarAlerta = (mensaje, tipo = 'info', sonido = false) => {
+        const alerta = {
+          id: Date.now(),
+          mensaje,
+          tipo
+        };
+
+        setAlertas(prev => [alerta, ...prev].slice(0, 3));
+
+        if (sonido) {
+          const audio = new Audio();
+          if (tipo === 'success') {
+            audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjGH0fPTgjMGHm7A7+OZSA0PVqzn7aVYFwtDmuD0wXIpBCuBzvLYiTcIGWi77eefTRAMUKfj8LZjHAY4ktfzznksRSBzvPHlnk0QDFCn4/C2YxwGOJLX891REAxQp+PwtmMcBjiS1/PdU';
+          } else {
+            audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACAgYJ9dHJzc3t+gYJ+d3Fta2xtbnBxcnJxb21ramprbG1ubm1sa2poZ2ZlZGRlZmdoaGhnZmRjYmBfXl5fYGJjY2NhX15cW1pZWVpbXV5eXl1bWllYV1ZVVVVWV1laWllYVlRTUlBPTk5PUVJSU1NTUlBOTUtKSUhISUpLTE1NTUxKSEdGRENCQUFBQkNFRkZGRkVDQkA+PTw7Ozs8PT9AQEBAPj08Ozo5ODc3Nzg5Ozw8PDo5Nzg5ODc2NTVVVVZX';
+          }
+          audio.play().catch(() => {});
+        }
+
+        setTimeout(() => {
+          setAlertas(prev => prev.filter(a => a.id !== alerta.id));
+        }, 3000);
+      };
+
+      const calcularEstadisticas = () => {
+        if (!reunionActual) return { total: 0, asistieron: 0, pendientes: 0, porcentaje: 0 };
+        
+        const asistieron = reunionActual.asistentes.filter(a => a.asistio).length;
+        const total = reunionActual.asistentes.length;
+        
+        return {
+          total,
+          asistieron,
+          pendientes: total - asistieron,
+          porcentaje: total > 0 ? Math.round((asistieron / total) * 100) : 0
+        };
+      };
+
+      const stats = calcularEstadisticas();
+
+      return (
+        <div className="p-4 pb-24">
+          {/* Alertas */}
+          <div className="fixed top-4 left-4 right-4 z-50 space-y-2">
+            {alertas.map(alerta => (
+              <div
+                key={alerta.id}
+                className={`p-3 rounded-lg shadow-2xl border-2 fade-in ${
+                  alerta.tipo === 'success' 
+                    ? 'bg-green-100 border-green-500 text-green-800' 
+                    : alerta.tipo === 'error'
+                    ? 'bg-red-100 border-red-500 text-red-800'
+                    : 'bg-yellow-100 border-yellow-500 text-yellow-800'
+                }`}
+              >
+                <p className="font-bold text-sm">{alerta.mensaje}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Header */}
+          <div className="bg-white rounded-xl shadow-lg p-4 mb-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <Icons.Calendar />
+                Reuniones
+              </h2>
+              <button
+                onClick={() => {
+                  setModoCreacion(true);
+                  setReunionActual(null);
+                }}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-1"
+              >
+                <Icons.Plus />
+                Nueva
+              </button>
+            </div>
+          </div>
+
+          {modoCreacion && (
+            <div className="bg-white rounded-xl shadow-lg p-4 mb-4">
+              <h3 className="font-semibold text-gray-800 mb-3">Nueva Reunión</h3>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Nombre *"
+                  value={nuevaReunion.nombre}
+                  onChange={(e) => setNuevaReunion({...nuevaReunion, nombre: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+                <input
+                  type="date"
+                  value={nuevaReunion.fecha}
+                  onChange={(e) => setNuevaReunion({...nuevaReunion, fecha: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+                <input
+                  type="time"
+                  value={nuevaReunion.hora}
+                  onChange={(e) => setNuevaReunion({...nuevaReunion, hora: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+                <input
+                  type="text"
+                  placeholder="Lugar"
+                  value={nuevaReunion.lugar}
+                  onChange={(e) => setNuevaReunion({...nuevaReunion, lugar: e.target.value})}
+                  className="w-full px-3 py-2 border rounded-lg text-sm"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={crearReunion}
+                    className="flex-1 bg-purple-600 text-white py-2 rounded-lg text-sm font-semibold"
+                  >
+                    Crear
+                  </button>
+                  <button
+                    onClick={() => setModoCreacion(false)}
+                    className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-semibold"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {reuniones.length > 0 && !reunionActual && (
+            <div className="bg-white rounded-xl shadow-lg p-4 mb-4">
+              <h3 className="font-semibold text-gray-800 mb-3">Selecciona una reunión</h3>
+              <div className="space-y-2">
+                {reuniones.map(reunion => {
+                  const asistieron = reunion.asistentes.filter(a => a.asistio).length;
+                  const total = reunion.asistentes.length;
+                  
+                  return (
+                    <button
+                      key={reunion.id}
+                      onClick={() => seleccionarReunion(reunion)}
+                      className="w-full text-left p-3 rounded-lg border-2 border-gray-200 hover:border-purple-300"
+                    >
+                      <h4 className="font-semibold text-gray-800">{reunion.nombre}</h4>
+                      <p className="text-xs text-gray-600 mt-1">
+                        {new Date(reunion.fecha).toLocaleDateString('es-ES')} - {reunion.hora}
+                      </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                          <div 
+                            className="bg-purple-600 h-1.5 rounded-full"
+                            style={{ width: `${(asistieron / total) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-semibold text-gray-600">
+                          {asistieron}/{total}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {reunionActual && (
+            <>
+              {/* Estadísticas */}
+              <div className="grid grid-cols-4 gap-2 mb-4">
+                <div className="bg-white rounded-lg shadow p-3">
+                  <p className="text-xs text-gray-600">Total</p>
+                  <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
+                </div>
+                <div className="bg-white rounded-lg shadow p-3">
+                  <p className="text-xs text-gray-600">Asist.</p>
+                  <p className="text-2xl font-bold text-green-600">{stats.asistieron}</p>
+                </div>
+                <div className="bg-white rounded-lg shadow p-3">
+                  <p className="text-xs text-gray-600">Pend.</p>
+                  <p className="text-2xl font-bold text-orange-600">{stats.pendientes}</p>
+                </div>
+                <div className="bg-white rounded-lg shadow p-3">
+                  <p className="text-xs text-gray-600">%</p>
+                  <p className="text-2xl font-bold text-purple-600">{stats.porcentaje}%</p>
+                </div>
+              </div>
+
+              {/* Scanner */}
+              <div className="bg-white rounded-xl shadow-lg p-4 mb-4">
+                <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <Icons.QrCode />
+                  Escanear QR
+                </h3>
+
+                {!escaneando ? (
+                  <div className="text-center py-8">
+                    <button
+                      onClick={iniciarEscaneo}
+                      className="px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold flex items-center gap-2 mx-auto"
+                    >
+                      <Icons.Video />
+                      Activar Cámara
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="relative bg-black rounded-lg overflow-hidden">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        className="w-full h-64 object-cover"
+                      />
+                      <div className="absolute inset-0 border-4 border-purple-500 m-8 rounded-lg pointer-events-none">
+                        <div className="absolute top-0 left-0 right-0 h-1 bg-purple-500 scan-animation"></div>
+                      </div>
+                    </div>
+                    <canvas ref={canvasRef} className="hidden" />
+                    <button
+                      onClick={detenerCamara}
+                      className="w-full px-6 py-3 bg-red-600 text-white rounded-lg font-semibold"
+                    >
+                      Detener
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Lista de asistencia */}
+              <div className="bg-white rounded-xl shadow-lg p-4">
+                <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                  <Icons.Users />
+                  Asistencia
+                </h3>
+
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {reunionActual.asistentes.map(asistente => (
+                    <div
+                      key={asistente.numeroSocio}
+                      className={`p-3 rounded-lg ${asistente.asistio ? 'bg-green-50' : 'bg-gray-50'}`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-purple-600 text-sm">#{asistente.numeroSocio}</span>
+                            <span className="text-sm font-medium">{asistente.nombrePadre}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs">
+                              {asistente.numeroHijos} {asistente.numeroHijos === 1 ? 'hijo' : 'hijos'}
+                            </span>
+                            {asistente.horaLlegada && (
+                              <span className="text-xs text-gray-600">{asistente.horaLlegada}</span>
+                            )}
+                          </div>
+                        </div>
+                        {asistente.asistio ? (
+                          <Icons.CheckCircle />
+                        ) : (
+                          <div className="w-6 h-6 border-2 border-gray-300 rounded-full"></div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={() => setReunionActual(null)}
+                className="w-full mt-4 bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold"
+              >
+                Volver a reuniones
+              </button>
+            </>
+          )}
+        </div>
+      );
+    };
+
+    // Renderizar la aplicación
+    ReactDOM.render(<AMPAApp />, document.getElementById('root'));
+  </script>
+</body>
+</html>
