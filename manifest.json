@@ -2,30 +2,23 @@
   "name": "AMPA Hermanos Alvarez Quintero",
   "short_name": "AMPA HAQ",
   "description": "Sistema de gestión de socios y control de asistencia para AMPA Hermanos Alvarez Quintero",
-  "start_url": "/",
+  "start_url": "/ampa-qr-system/",
   "display": "standalone",
   "background_color": "#7c3aed",
   "theme_color": "#7c3aed",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "/ampa-qr-system/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "/ampa-qr-system/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "screenshot.png",
-      "sizes": "540x720",
-      "type": "image/png"
     }
   ]
 }

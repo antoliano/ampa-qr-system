@@ -11,9 +11,9 @@
   
   <title>AMPA Hermanos Alvarez Quintero</title>
   
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" href="icon-192.png">
-  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="manifest" href="/ampa-qr-system/manifest.json">
+  <link rel="icon" type="image/png" href="/ampa-qr-system/icon-192.png">
+  <link rel="apple-touch-icon" href="/ampa-qr-system/icon-192.png">
   
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -374,6 +374,35 @@
 
       const SECRET_KEY = 'AMPA_SECRET_KEY_2025';
 
+      const validarDNI = (dni) => {
+        // Eliminar espacios y convertir a mayúsculas
+        dni = dni.trim().toUpperCase().replace(/\s/g, '');
+        
+        // Formato: 8 números + 1 letra
+        const dniRegex = /^(\d{8})([A-Z])$/;
+        const match = dni.match(dniRegex);
+        
+        if (!match) {
+          return { valido: false, mensaje: 'Formato incorrecto. Debe ser 8 números + 1 letra (ej: 12345678Z)' };
+        }
+        
+        const numero = parseInt(match[1], 10);
+        const letraIntroducida = match[2];
+        
+        // Tabla de letras del DNI español
+        const letras = 'TRWAGMYFPDXBNJZSQVHLCKE';
+        const letraCorrecta = letras[numero % 23];
+        
+        if (letraIntroducida !== letraCorrecta) {
+          return { 
+            valido: false, 
+            mensaje: `La letra del DNI es incorrecta. Para ${match[1]} debería ser ${letraCorrecta}, no ${letraIntroducida}` 
+          };
+        }
+        
+        return { valido: true, dni: dni };
+      };
+
       const saveSocios = async (nuevosSocios) => {
         try {
           // Intentar guardar con window.storage (Claude.ai)
@@ -450,7 +479,14 @@
           return;
         }
 
-        const socioExistente = socios.find(s => s.dni.toLowerCase() === formData.dni.toLowerCase());
+        // Validar DNI
+        const validacionDNI = validarDNI(formData.dni);
+        if (!validacionDNI.valido) {
+          setError(validacionDNI.mensaje);
+          return;
+        }
+
+        const socioExistente = socios.find(s => s.dni.toLowerCase() === validacionDNI.dni.toLowerCase());
         const numeroSocio = socioExistente ? socioExistente.numeroSocio : generarNumeroSocio();
         
         const fechaCaducidad = calcularFechaCaducidad();
@@ -458,7 +494,7 @@
 
         const datosQR = {
           numeroSocio,
-          dni: formData.dni.toUpperCase(),
+          dni: validacionDNI.dni,
           nombrePadre: formData.nombrePadre,
           hijos: formData.hijos.map(h => ({ nombre: h.nombre, curso: h.curso })),
           numeroHijos: formData.hijos.length,
@@ -562,12 +598,19 @@
           return;
         }
 
+        // Validar DNI (aunque esté deshabilitado, lo validamos por seguridad)
+        const validacionDNI = validarDNI(formData.dni);
+        if (!validacionDNI.valido) {
+          setError(validacionDNI.mensaje);
+          return;
+        }
+
         const fechaCaducidad = calcularFechaCaducidad();
         const fechaGeneracion = new Date().toISOString().split('T')[0];
 
         const datosActualizados = {
           numeroSocio: socioEditando.numeroSocio,
-          dni: formData.dni.toUpperCase(),
+          dni: validacionDNI.dni,
           nombrePadre: formData.nombrePadre,
           hijos: formData.hijos.map(h => ({ nombre: h.nombre, curso: h.curso })),
           numeroHijos: formData.hijos.length,
@@ -727,13 +770,44 @@
                 <input
                   type="text"
                   value={formData.dni}
-                  onChange={(e) => setFormData({ ...formData, dni: e.target.value })}
-                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${modoEdicion ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                  placeholder="12345678A"
+                  onChange={(e) => {
+                    const valor = e.target.value.toUpperCase();
+                    setFormData({ ...formData, dni: valor });
+                    // Limpiar error de DNI si el usuario está escribiendo
+                    if (error && error.includes('DNI')) {
+                      setError('');
+                    }
+                  }}
+                  onBlur={(e) => {
+                    // Validar cuando el usuario salga del campo
+                    if (e.target.value.trim() && !modoEdicion) {
+                      const validacion = validarDNI(e.target.value);
+                      if (!validacion.valido) {
+                        setError(validacion.mensaje);
+                      } else {
+                        // Actualizar con DNI formateado
+                        setFormData({ ...formData, dni: validacion.dni });
+                        setError('');
+                      }
+                    }
+                  }}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm ${
+                    modoEdicion 
+                      ? 'bg-gray-100 cursor-not-allowed border-gray-300' 
+                      : error && error.includes('DNI')
+                      ? 'border-red-500 focus:ring-2 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-2 focus:ring-purple-500'
+                  }`}
+                  placeholder="12345678Z (8 números + letra)"
                   disabled={modoEdicion}
+                  maxLength="9"
                 />
-                {modoEdicion && (
+                {modoEdicion ? (
                   <p className="text-xs text-gray-500 mt-1">El DNI no se puede modificar</p>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Formato: 8 números seguidos de la letra (ej: 12345678Z)
+                  </p>
                 )}
               </div>
 
